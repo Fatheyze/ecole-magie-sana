@@ -111,3 +111,6 @@ L'accueil est une scène de nuit dessinée en code (`castle.js`, aucune image à
 ## Photo du château (`chateau.jpg`)
 Si `chateau.jpg` est présent à côté de `index.html`, l'accueil l'utilise à la place du dessin (format paysage conseillé, ~1400×780). Par-dessus : fanions cliquables sur les tours, lueurs de fenêtres qui vacillent, brume, bougies, hibou, étoile filante. Pour utiliser une autre photo, remplace le fichier puis ajuste `PSPOTS` (positions des fanions) dans `castle.js`. Pour revenir au dessin, supprime simplement `chateau.jpg`.
 Attention aux droits : une image tirée d'un film ou d'un parc à thème reste protégée. Pour un usage strictement familial c'est ton choix, mais un dépôt GitHub Pages public la rend accessible à tout le monde.
+
+## Voix (lecture à voix haute)
+L'appli utilise les voix de l'iPad. Elle écarte maintenant les voix « gadget » d'Apple, préfère les voix de qualité (Premium / Enhanced / Siri) et lit les mots anglais avec une voix anglaise (en-GB), le reste en français. Pour une meilleure qualité sur l'iPad : Réglages → Accessibilité → Contenu énoncé → Voix, télécharger une voix « Premium » ou « Améliorée » (anglais UK : Daniel / Kate ; français : Amélie / Thomas). Dans l'appli, en bas de l'accueil, « 🎙 Voix anglaise » et « 🎙 Voix française » font défiler les voix disponibles (chacune se présente) : on garde celle qui sonne le mieux.

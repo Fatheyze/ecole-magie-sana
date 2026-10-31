@@ -59,14 +59,34 @@ const stateDoc = () => ({ points: S.points, streak: S.streak, house: S.house, le
 
 // ---------------- LECTURE À VOIX HAUTE ----------------
 const speechOK = typeof speechSynthesis !== 'undefined' && typeof SpeechSynthesisUtterance !== 'undefined';
-function speak(text, slow, lang) {
+// Choix de la voix : on écarte les voix « gadget » d'Apple, on préfère les voix de qualité (Premium / Enhanced / Siri) et les bonnes voix connues.
+const NOVELTY = /albert|bad news|bahh|bells|boing|bubbles|cellos|deranged|good news|hysterical|jester|organ|superstar|trinoids|whisper|wobble|zarvox|fred|junior|ralph|kathy/i;
+const GOOD = { en: /daniel|kate|serena|arthur|martha|oliver|samantha|karen|moira/i, fr: /am[ée]lie|thomas|audrey|aur[ée]lie|marie|virginie/i };
+const voicesFor = (l) => { try { return speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().replace('_', '-').startsWith(l) && !NOVELTY.test(v.name)); } catch { return []; } };
+const voiceScore = (v, l) => { const lang = v.lang.toLowerCase().replace('_', '-'); return (lang === (l === 'en' ? 'en-gb' : 'fr-fr') ? 6 : 0) + (/premium|enhanced|siri|neural|natural|am[ée]lior/i.test(v.name) ? 8 : 0) + (GOOD[l].test(v.name) ? 4 : 0) + (v.localService ? 1 : 0); };
+const bestVoice = (l) => { const all = voicesFor(l), pref = S.voices && S.voices[l]; return all.find(v => v.name === pref) || all.sort((a, b) => voiceScore(b, l) - voiceScore(a, l))[0] || null; };
+const speakOne = (text, l, slow) => new Promise(res => { try { const u = new SpeechSynthesisUtterance(text), v = bestVoice(l); u.lang = l === 'en' ? 'en-GB' : 'fr-FR'; if (v) { u.voice = v; u.lang = v.lang; } u.rate = slow ? .72 : l === 'en' ? .85 : .95; u.onend = u.onerror = () => res(); speechSynthesis.speak(u); } catch { res(); } });
+// parts : [{ t: texte, l: 'fr' | 'en' }, …] lues l'une après l'autre
+function speakParts(parts, slow) {
   if (!speechOK) return;
-  try {
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text); u.lang = lang || 'fr-FR'; u.rate = slow ? 0.75 : 0.95;
-    const v = speechSynthesis.getVoices().find(x => x.lang.toLowerCase().startsWith((lang || 'fr').slice(0, 2))); if (v) u.voice = v;
-    speechSynthesis.speak(u);
-  } catch { /* pas de voix disponible */ }
+  try { speechSynthesis.cancel(); } catch { return; }
+  const id = ++speakId; (async () => { for (const p of parts) { if (id !== speakId) return; if (p.t.trim()) await speakOne(p.t, p.l, slow); } })();
+}
+let speakId = 0;
+const speak = (text, slow, lang) => speakParts([{ t: text, l: (lang || 'fr').slice(0, 2) === 'en' ? 'en' : 'fr' }], slow);
+// bouton « changer de voix » : fait défiler les voix disponibles (anglais puis français)
+function cycleVoice(l) { const all = voicesFor(l); if (!all.length) return 'aucune voix'; const cur = bestVoice(l), nx = all[(all.indexOf(cur) + 1) % all.length]; S.voices = Object.assign({}, S.voices, { [l]: nx.name }); save(); speakParts([{ t: l === 'en' ? 'Hello, my name is ' + nx.name.split(' ')[0] : 'Bonjour, je m\'appelle ' + nx.name.split(' ')[0], l }]); return nx.name; }
+if (speechOK) try { speechSynthesis.onvoiceschanged = () => {}; speechSynthesis.getVoices(); } catch { /* */ }
+// anglais : ce qui est entre « » est lu avec la voix anglaise, le reste en français
+const ENG_CHOICES = /Comment dit-on|en anglais|bonne réponse|___|capitale/;
+function speechParts(q) {
+  if (q.speak) return [{ t: q.speak, l: (q.speakLang || 'fr').slice(0, 2) === 'en' ? 'en' : 'fr' }];
+  if ((SKILLS[q.skill] || {}).subject !== 'anglais') return [{ t: speechText(q), l: 'fr' }];
+  const raw = q.prompt.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/___/g, ' blanc ').replace(/ = /g, ' veut dire ').replace(/—/g, ','), parts = [];
+  const ql = /en anglais/.test(raw) ? 'fr' : 'en'; // « bonjour » en anglais : le mot cité est français
+  raw.split(/(«[^»]*»)/).forEach(seg => { if (/^«/.test(seg)) parts.push({ t: seg.replace(/[«»]/g, ''), l: ql }); else parts.push({ t: seg, l: 'fr' }); });
+  if (q.kind === 'choice') { parts.push({ t: 'Choix.', l: 'fr' }); const l = ENG_CHOICES.test(q.prompt) ? 'en' : 'fr'; q.choices.forEach(c => parts.push({ t: c.replace(/[.!?]$/, '') + '.', l })); }
+  return parts;
 }
 const speechText = (q) => {
   if (q.speak) return q.speak;
@@ -210,7 +230,7 @@ function home() {
     <p class="small">🎯 Défi : ${ch.txt} — <b>${Math.min(prog, ch.target)}/${ch.target}</b> ${S.week.done ? `✅ (+${CHALLENGE_BONUS} pts)` : `(+${CHALLENGE_BONUS} pts)`}<br>Les autres maisons avancent toutes seules 🪄</p></div>
   <button class="link big" id="rw">🎁 ${nr ? `Prochaine récompense : ${rewardLine(nr)}` : 'Toutes les récompenses sont débloquées !'}</button>
   <button class="link big" id="tr">🏅 Mes trophées (${badges().filter(b => b.got).length}/${badges().length})</button>
-  <footer><button class="link" id="lvl">Niveau : ${S.level} (changer)</button>${speechOK ? ` · <button class="link" id="ar">🔊 Lecture auto : ${S.autoRead ? 'oui' : 'non'}</button>` : ''} · <a href="parent.html">Espace parent</a></footer>
+  <footer><button class="link" id="lvl">Niveau : ${S.level} (changer)</button>${speechOK ? ` · <button class="link" id="ar">🔊 Lecture auto : ${S.autoRead ? 'oui' : 'non'}</button>` : ''}${speechOK ? ` · <button class="link" id="ven">🎙 Voix anglaise</button> · <button class="link" id="vfr">🎙 Voix française</button>` : ''} · <a href="parent.html">Espace parent</a></footer>
   </div>`;
   document.querySelectorAll('.hs').forEach(b => { const go = () => b.dataset.k === 'mission' ? startSession('mission') : topicsScreen(b.dataset.k); b.onclick = go; });
   if (document.body) document.body.classList.add('is-home');
@@ -233,6 +253,7 @@ function home() {
   const ok = document.getElementById('okn'); if (ok) ok.onclick = () => { S.cupNotice = null; save(); home(); };
   document.getElementById('rw').onclick = rewardsScreen;
   document.getElementById('lvl').onclick = () => { S.level = S.level === 'CM1' ? 'CM2' : 'CM1'; save(); syncState(stateDoc()); home(); };
+  const ven = document.getElementById('ven'), vfr = document.getElementById('vfr'); if (ven) { ven.onclick = () => { ven.textContent = '🎙 ' + cycleVoice('en'); }; vfr.onclick = () => { vfr.textContent = '🎙 ' + cycleVoice('fr'); }; }
   const ar = document.getElementById('ar'); if (ar) ar.onclick = () => { S.autoRead = !S.autoRead; save(); if (S.autoRead) speak('Lecture automatique activée'); home(); };
   save();
 }
@@ -308,7 +329,7 @@ setInterval(() => {
   if (G.elapsed % 5 === 0) persist();
   const tm = document.getElementById('tm'); if (tm) tm.textContent = clock(G.elapsed);
 }, 1000);
-document.addEventListener('visibilitychange', () => { if (document.hidden) { persist(); if (speechOK) speechSynthesis.cancel(); } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { persist(); if (speechOK) { speakId++; speechSynthesis.cancel(); } } });
 // Geste « retour » de l'iPad / du navigateur : même effet que la flèche ←
 window.addEventListener('hashchange', () => {
   if (location.hash) return;
@@ -364,8 +385,8 @@ function showQuestion(keep) {
     <div id="fb" class="fb"></div>
     <button id="go" class="primary">${q.kind === 'choice' ? '' : 'Valider'}</button>`;
   document.getElementById('quit').onclick = pause;
-  const say = document.getElementById('say'); if (say) say.onclick = () => speak(speechText(q), q.slow, q.speakLang);
-  if (speechOK && !keep && (q.speak || S.autoRead)) speak(speechText(q), q.slow, q.speakLang);
+  const say = document.getElementById('say'); if (say) say.onclick = () => speakParts(speechParts(q), q.slow);
+  if (speechOK && !keep && (q.speak || S.autoRead)) speakParts(speechParts(q), q.slow);
   const go = document.getElementById('go');
   if (q.kind === 'choice') go.style.display = 'none';
   go.onclick = () => G.done ? next() : check();
