@@ -13,3 +13,7 @@ export function startMusic() {
 export function stopMusic() {
   if (!on) return; on = false; ramp(0, 700, () => !on && el.pause());
 }
+// Quitter l'appli (autre appli, écran verrouillé, onglet masqué) : la musique se met en pause ; au retour sur l'accueil elle reprend.
+const hide = () => { if (el && !el.paused) el.pause(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) hide(); else if (on && el) el.play().catch(() => {}); });
+window.addEventListener('pagehide', hide);

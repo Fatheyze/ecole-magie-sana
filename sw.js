@@ -1,4 +1,4 @@
-const CACHE = 'sana-v17';
+const CACHE = 'sana-v18';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'gen.js', 'banks.js', 'banks2.js', 'castle.js', 'audio.js', 'sync.js', 'firebase-config.js', 'manifest.webmanifest'];
 
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
