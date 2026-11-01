@@ -167,7 +167,8 @@ const weekFraction = () => { const d = new Date(); return (((d.getDay() + 6) % 7
 // Les autres maisons suivent le vrai travail de Sana : elles restent à ±36 points environ, passent devant puis derrière
 // (onde propre à chaque maison, croissante avec les points) ; si Sana ne travaille pas, elles avancent doucement (150 pts/semaine).
 const rivalPts = (id, key, mine, f) => {
-  const x = Math.max(mine, 150 * Math.min(1, f));
+  const m = mine > 300 ? 300 + (mine - 300) * 0.88 : mine; // si elle travaille beaucoup, elle prend de l'avance
+  const x = Math.max(m, 150 * Math.min(1, f));
   const h = hash(key + id), period = 360 + h % 200, phase = (h % 628) / 100;
   return Math.max(0, Math.round(x + 36 * Math.min(1, x / 150) * Math.sin(2 * Math.PI * x / period + phase)));
 };
