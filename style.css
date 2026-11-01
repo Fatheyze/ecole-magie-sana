@@ -15,6 +15,7 @@ button:focus-visible,.bld:focus-visible{outline:4px solid var(--c2);outline-offs
 .xp.slim{height:8px;margin-bottom:0}
 .mission{width:100%;padding:16px 20px;border-radius:14px;background:var(--wax);color:var(--paper3);border-bottom:5px solid var(--wax2);font-size:1.25em;font-weight:700;margin-bottom:14px;text-align:left}
 .mission small,.stitch small{display:block;font-weight:400;opacity:.9;font-size:.7em;margin-top:4px}
+.mission.faibles{margin-top:12px;background:#9c3b2e;border-bottom-color:#6b2319}
 .mission.nouveau{margin-top:12px;background:#2f5d62;border-bottom-color:#1d3c40}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .subject{padding:22px 10px;border-radius:12px;background:var(--paper2);border-top:14px solid var(--c1);border-bottom:4px solid var(--c2);display:flex;flex-direction:column;align-items:center;gap:4px;font-weight:700}

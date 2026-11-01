@@ -214,6 +214,7 @@ function home() {
   const nr = getRewards().find(r => !isUnlocked(r));
   const due = dueReviews(S.level, Object.keys(SUBJECTS)).length;
   const n = S.cupNotice;
+  const weak = weakSkills();
   const newCount = NEW_SKILLS.filter(id => SKILLS[id].lv.includes(S.level)).length;
   const hero = `<header class="hero">
     <div class="crest">${crest(S.house)}</div>
@@ -229,6 +230,7 @@ function home() {
   <div class="goal"><div class="gl"><span>⏱ Aujourd'hui : <b>${fmtMin(today)}</b> / ${S.goalMin} min ${today >= goal ? '🎯' : ''}</span><span>Semaine : ${fmtMin(weekSec())}</span></div>
     <div class="xp slim"><div style="width:${gpct}%"></div></div></div>
   ${S.run ? `<div class="resume"><button class="mission" id="resume">▶ Reprendre ma séance<small>${runLabel()} · question ${Math.min(S.run.i + 1, S.run.qs.length)}/${S.run.qs.length}</small></button><button class="link" id="abandon">Terminer cette séance et garder mes points</button></div>` : ''}
+  ${weak.length ? `<button class="mission faibles" id="faibles">💪 Entraînement ciblé<small>${weak.length} notion${weak.length > 1 ? 's' : ''} à renforcer (moins de 75 %) • points +50 %</small></button>` : ''}
   <button class="mission nouveau" id="nouveau">🆕 Nouveautés<small>${newCount} sujets du programme à découvrir • ${SESSION_N} questions</small></button>
   ${S.tickets > 0 ? `<button class="stitch" id="stitch"><img src="stitch.png" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'👽',className:'e'}))"><div><b>Mission Stitch ×${S.tickets}</b><small>Stitch s'est échappé ! Calcul éclair de 45 secondes</small></div></button>` : `<p class="hint">🌺 Fais encore ${3 - (S.sessions % 3)} séance(s) pour débloquer une visite de Stitch !</p>`}
   <div class="cup"><div class="gl"><b>🏆 Coupe des maisons · cette semaine</b><span>${rank}e / 4</span></div>
@@ -246,6 +248,7 @@ function home() {
     mb.onclick = (e) => { e.stopPropagation(); const v = !musicPref(); try { localStorage.setItem('sana_music', v ? '1' : '0'); } catch {} paint(); v ? startMusic() : stopMusic(); }; paint(); sc.appendChild(mb); }
   const arm = () => { if (onHome && musicPref()) startMusic(); }; arm(); document.addEventListener('pointerdown', arm, { once: true });
   document.getElementById('nouveau').onclick = () => startSession('nouveau');
+  const fb0 = document.getElementById('faibles'); if (fb0) fb0.onclick = () => startSession('faibles');
   const rs = document.getElementById('resume'); if (rs) { rs.onclick = resume; document.getElementById('abandon').onclick = abandon; }
   document.getElementById('tr').onclick = trophiesScreen;
   // Mode test caché : toucher 5 fois « Bonjour Sana ! » (pour tout essayer avant de valider)
@@ -309,7 +312,20 @@ let G = null; // séance en cours
 let rush = null; // mission Stitch en cours
 let lastAct = Date.now();
 
-const kindName = (k) => k === 'mission' ? 'Mission du jour' : k === 'nouveau' ? 'Nouveautés' : k.startsWith('skill:') ? SKILLS[k.slice(6)].label : SUBJECTS[k].name;
+const WEAK_MAX = 0.75, WEAK_BONUS = 1.5;
+const weakSkills = (lv = S.level) => Object.keys(SKILLS).filter(id => SKILLS[id].lv.includes(lv)).map(id => ({ id, t: (S.stats[lv] || {})[id] }))
+  .filter(({ t }) => t && t.tot >= 2 && t.ok / t.tot < WEAK_MAX).sort((a, b) => a.t.ok / a.t.tot - b.t.ok / b.t.tot).map(x => x.id);
+function buildWeak(n, lv) {
+  const ids = weakSkills(lv), qs = [], seen = new Set(); let last = null, guard = 0;
+  while (qs.length < n && guard++ < 300) {
+    const pool = ids.length > 1 ? ids.filter(i => i !== last) : ids, w = pool.map(i => 1.2 - S.stats[lv][i].ok / S.stats[lv][i].tot);
+    let r = Math.random() * w.reduce((a, b) => a + b, 0), id = pool[pool.length - 1];
+    for (let k = 0; k < pool.length; k++) { r -= w[k]; if (r <= 0) { id = pool[k]; break; } }
+    const q = makeQuestion(id, lv); if (seen.has(q.prompt)) continue; seen.add(q.prompt); qs.push(q); last = id;
+  }
+  return qs;
+}
+const kindName = (k) => k === 'faibles' ? 'Entraînement ciblé' : k === 'mission' ? 'Mission du jour' : k === 'nouveau' ? 'Nouveautés' : k.startsWith('skill:') ? SKILLS[k.slice(6)].label : SUBJECTS[k].name;
 const runLabel = () => `${kindName(S.run.kind)} · ${S.run.level || 'CM1'}`;
 
 // Sauvegarde l'endroit exact où elle en est (question, essais, cases coloriées, temps de travail).
@@ -347,10 +363,10 @@ function startSession(kind) {
   leaveHome(); ensureWeek();
   const lv = S.level, st = S.stats[lv];
   const all = Object.keys(SUBJECTS), isSkill = kind.startsWith('skill:');
-  const subjects = kind === 'mission' || kind === 'nouveau' ? all : isSkill ? [SKILLS[kind.slice(6)].subject] : [kind];
-  let qs = kind === 'mission' ? subjects.flatMap(s => buildSession(s, MISSION_PER_SUBJECT, st, lv)) : kind === 'nouveau' ? buildNew(SESSION_N, st, lv)
+  const subjects = kind === 'mission' || kind === 'nouveau' || kind === 'faibles' ? all : isSkill ? [SKILLS[kind.slice(6)].subject] : [kind];
+  let qs = kind === 'mission' ? subjects.flatMap(s => buildSession(s, MISSION_PER_SUBJECT, st, lv)) : kind === 'nouveau' ? buildNew(SESSION_N, st, lv) : kind === 'faibles' ? buildWeak(SESSION_N, lv)
     : isSkill ? buildSkill(kind.slice(6), SESSION_N, lv) : buildSession(kind, SESSION_N, st, lv);
-  if (!isSkill) qs = withReviews(qs, subjects, kind === 'nouveau' ? 0 : kind === 'mission' ? 4 : 5, lv);
+  if (!isSkill) qs = withReviews(qs, subjects, kind === 'nouveau' || kind === 'faibles' ? 0 : kind === 'mission' ? 4 : 5, lv);
   G = { kind, level: lv, qs, i: 0, correct: 0, points: 0, start: Date.now(), skills: {}, firstTry: 0, elapsed: 0, tq0: Date.now() };
   location.hash = 'seance';
   showQuestion();
@@ -428,7 +444,7 @@ function check(val, btn) {
   const sk = (G.skills[q.skill] ||= { ok: 0, tot: 0, sec: 0 });
   const qsec = () => { sk.sec = (sk.sec || 0) + Math.min(120, (Date.now() - G.tq0) / 1000); };
   if (ok) {
-    const pts = G.attempts === 0 ? 10 : 5;
+    const pts = Math.round((G.attempts === 0 ? 10 : 5) * (G.kind === 'faibles' ? WEAK_BONUS : 1));
     G.points += pts; G.correct++; sk.tot++; qsec();
     if (G.attempts === 0) { G.firstTry++; sk.ok++; }
     updateReview(q, G.attempts === 0);
