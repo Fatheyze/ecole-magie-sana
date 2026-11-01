@@ -644,7 +644,7 @@ function diagramme(lv) {
   if (m === 1) { const mx = v.indexOf(Math.max(...v)); return choiceQ(`${head}<b>Quel fruit est le plus choisi ?</b>`, names[mx], names.filter((_, k) => k !== mx), 'Cherche la barre la plus haute.', `Les ${names[mx]} : ${v[mx]} élèves.`, { svg }); }
   if (m === 2) return num(`${head}<b>Combien d'élèves en tout ont voté ?</b>`, v.reduce((a, b) => a + b, 0), { svg, hint: 'Additionne la hauteur des 4 barres.', explain: `${v.join(' + ')} = ${v.reduce((a, b) => a + b, 0)}` });
   const j = (i + 1 + rnd(0, 2)) % 4, hi = Math.max(v[i], v[j]), lo = Math.min(v[i], v[j]);
-  return num(`${head}<b>Combien d'élèves de plus ont choisi ${v[i] >= v[j] ? names[i] : names[j]} que ${v[i] >= v[j] ? names[j] : names[i]} ?</b>`, hi - lo, { svg, hint: 'Lis les deux barres puis soustrais.', explain: `${hi} − ${lo} = ${hi - lo}` });
+  return num(`${head}<b>Combien d'élèves de plus ont choisi les ${v[i] >= v[j] ? names[i] : names[j]} que les ${v[i] >= v[j] ? names[j] : names[i]} ?</b>`, hi - lo, { svg, hint: 'Lis les deux barres puis soustrais.', explain: `${hi} − ${lo} = ${hi - lo}` });
 }
 
 // ---------- v4 : FRANÇAIS ----------

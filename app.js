@@ -164,8 +164,13 @@ function badges() {
 const hash = (s) => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };
 const weekKey = () => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return dayStr(d); }; // lundi
 const weekFraction = () => { const d = new Date(); return (((d.getDay() + 6) % 7) + (d.getHours() * 60 + d.getMinutes()) / 1440) / 7; };
-// Les autres maisons avancent « toutes seules » (simulation) : objectif entre 170 et 369 points sur la semaine
-const rivalPts = (id, key, f) => Math.round((450 + hash(key + id) % 600) * Math.pow(Math.min(1, f), 0.9));
+// Les autres maisons suivent le vrai travail de Sana : elles restent à ±36 points environ, passent devant puis derrière
+// (onde propre à chaque maison, croissante avec les points) ; si Sana ne travaille pas, elles avancent doucement (150 pts/semaine).
+const rivalPts = (id, key, mine, f) => {
+  const x = Math.max(mine, 150 * Math.min(1, f));
+  const h = hash(key + id), period = 360 + h % 200, phase = (h % 628) / 100;
+  return Math.max(0, Math.round(x + 36 * Math.min(1, x / 150) * Math.sin(2 * Math.PI * x / period + phase)));
+};
 const challenge = () => CHALLENGES[hash(S.week.key) % CHALLENGES.length];
 const challengeProgress = () => { const c = challenge(); return c.id === 'days' ? S.week.days.length : c.id === 'correct' ? S.week.correct : Math.floor(S.week.sec / 60); };
 
@@ -174,7 +179,7 @@ function ensureWeek() {
   if (S.week && S.week.key === key) return;
   if (S.week && S.week.points > 0) {
     const old = S.week;
-    const rank = 1 + Object.keys(HOUSES).filter(id => id !== S.house).filter(id => rivalPts(id, old.key, 1) > old.points).length;
+    const rank = 1 + Object.keys(HOUSES).filter(id => id !== S.house).filter(id => rivalPts(id, old.key, old.points, 1) > old.points).length;
     const bonus = rank === 1 ? CUP_BONUS : 0;
     S.cups.push({ week: old.key, rank, points: old.points }); S.cups = S.cups.slice(-26);
     S.points += bonus; S.cupNotice = { rank, points: old.points, bonus };
@@ -184,7 +189,7 @@ function ensureWeek() {
 }
 function cupRows() {
   const f = weekFraction();
-  return Object.entries(HOUSES).map(([id, h]) => ({ id, h, me: id === S.house, pts: id === S.house ? S.week.points : rivalPts(id, S.week.key, f) }))
+  return Object.entries(HOUSES).map(([id, h]) => ({ id, h, me: id === S.house, pts: id === S.house ? S.week.points : rivalPts(id, S.week.key, S.week.points, f) }))
     .sort((a, b) => b.pts - a.pts || (b.me ? 1 : 0) - (a.me ? 1 : 0));
 }
 
